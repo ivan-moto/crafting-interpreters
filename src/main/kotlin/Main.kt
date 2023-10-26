@@ -5,6 +5,7 @@ import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
 var hadError = false
+var hadRuntimeError = false
 
 fun main(args: Array<String>) {
     when {
@@ -17,6 +18,7 @@ fun main(args: Array<String>) {
 private fun runFile(path: String) {
     run(Path(path).readText())
     if (hadError) exitProcess(65)
+    if (hadRuntimeError) exitProcess(70)
 }
 
 private fun runPrompt() {
@@ -29,11 +31,18 @@ private fun runPrompt() {
     }
 }
 
+val scanner = Scanner()
+val parser = Parser()
+val interpreter = Interpreter()
+
 private fun run(source: String) {
-    val tokens = Scanner(source).scanTokens()
-    for (token in tokens) {
-        println(token)
-    }
+    val tokens = scanner.scanTokens(source)
+    val expression = parser.parse(tokens)
+
+    // Stop if there was a syntax error.
+    if (expression == null) return
+
+    interpreter.interpret(expression)
 }
 
 private fun error(line: Int, message: String) {
@@ -43,4 +52,16 @@ private fun error(line: Int, message: String) {
 private fun report(line: Int, where: String, message: String) {
     hadError = true
     System.err.println("[Line $line] Error $where: $message")
+}
+
+fun error(token: Token, message: String) {
+    when (token.type) {
+        TokenType.EOF -> report(token.line, " at end", message)
+        else -> report(token.line, " at '${token.lexeme}'", message)
+    }
+}
+
+fun runtimeError(error: RuntimeError) {
+    hadRuntimeError = true
+    System.err.println("${error.message} \n[Line ${error.token.line}]")
 }

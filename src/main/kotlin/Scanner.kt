@@ -57,9 +57,9 @@ data class Token(
     val literal: Any? = null,
 )
 
-class Scanner(val source: String) {
+class Scanner {
 
-    val keywords = mapOf(
+    private val keywords = mapOf(
         "and" to TokenType.AND,
         "class" to TokenType.CLASS,
         "else" to TokenType.ELSE,
@@ -78,7 +78,7 @@ class Scanner(val source: String) {
         "while" to TokenType.WHILE,
     )
 
-    fun scanTokens() = sequence {
+    fun scanTokens(source: String) = buildList {
         val iter = SourceIterator(source)
         fun Token(type: TokenType, literal: Any? = null) = Token(
             type, source.substring(iter.start, iter.current), iter.line, literal
@@ -86,27 +86,27 @@ class Scanner(val source: String) {
         while (iter.hasNext()) {
             iter.start = iter.current
             when (iter.next()) {
-                '(' -> yield(Token(TokenType.LEFT_PAREN))
-                ')' -> yield(Token(TokenType.RIGHT_PAREN))
-                '{' -> yield(Token(TokenType.LEFT_BRACE))
-                '}' -> yield(Token(TokenType.RIGHT_BRACE))
-                ',' -> yield(Token(TokenType.COMMA))
-                '.' -> yield(Token(TokenType.DOT))
-                '-' -> yield(Token(TokenType.MINUS))
-                '+' -> yield(Token(TokenType.PLUS))
-                ';' -> yield(Token(TokenType.SEMICOLON))
-                '*' -> yield(Token(TokenType.STAR))
-                '!' -> yield(Token(if (iter.match('=')) TokenType.BANG_EQUAL else TokenType.BANG))
-                '=' -> yield(Token(if (iter.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL))
-                '<' -> yield(Token(if (iter.match('=')) TokenType.LESS_EQUAL else TokenType.LESS))
-                '>' -> yield(Token(if (iter.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER))
+                '(' -> add(Token(TokenType.LEFT_PAREN))
+                ')' -> add(Token(TokenType.RIGHT_PAREN))
+                '{' -> add(Token(TokenType.LEFT_BRACE))
+                '}' -> add(Token(TokenType.RIGHT_BRACE))
+                ',' -> add(Token(TokenType.COMMA))
+                '.' -> add(Token(TokenType.DOT))
+                '-' -> add(Token(TokenType.MINUS))
+                '+' -> add(Token(TokenType.PLUS))
+                ';' -> add(Token(TokenType.SEMICOLON))
+                '*' -> add(Token(TokenType.STAR))
+                '!' -> add(Token(if (iter.match('=')) TokenType.BANG_EQUAL else TokenType.BANG))
+                '=' -> add(Token(if (iter.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL))
+                '<' -> add(Token(if (iter.match('=')) TokenType.LESS_EQUAL else TokenType.LESS))
+                '>' -> add(Token(if (iter.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER))
                 '/' -> {
                     if (iter.match('/')) {
                         // A comment goes until the end of the line.
                         while (iter.peek() != '\n' && iter.hasNext()) iter.next()
                     }
                     // Not a comment.
-                    yield(Token(TokenType.SLASH))
+                    add(Token(TokenType.SLASH))
                 }
                 ' ', '\r', '\t' -> continue
                 '\n' -> iter.line++
@@ -122,7 +122,7 @@ class Scanner(val source: String) {
                     // The closing "".
                     iter.next()
                     // Trim surrounding quotes.
-                    yield(Token(TokenType.STRING, source.substring(iter.start + 1, iter.current - 1)))
+                    add(Token(TokenType.STRING, source.substring(iter.start + 1, iter.current - 1)))
                 }
                 in '0'..'9' -> {
                     while (isDigit(iter.peek())) iter.next()
@@ -134,18 +134,18 @@ class Scanner(val source: String) {
 
                         while (isDigit(iter.peek())) iter.next()
                     }
-                    yield(Token(TokenType.NUMBER, source.substring(iter.start, iter.current).toDouble()))
+                    add(Token(TokenType.NUMBER, source.substring(iter.start, iter.current).toDouble()))
                 }
                 in 'a'..'z', in 'A'..'Z', '_' -> {
                     while(isAlphaNumeric(iter.peek())) iter.next()
                     val text = source.substring(iter.start, iter.current)
-                    yield(Token(keywords[text] ?: TokenType.IDENTIFIER, text))
+                    add(Token(keywords[text] ?: TokenType.IDENTIFIER, text))
                 }
                 else -> println("Unexpected character. Line: ${iter.line}")
             }
 
         }
-        yield(Token(TokenType.EOF))
+        add(Token(TokenType.EOF))
     }
 
     private fun isDigit(char: Char?): Boolean = char != null && char in '0'..'9'
