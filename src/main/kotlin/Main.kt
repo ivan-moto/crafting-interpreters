@@ -37,12 +37,12 @@ val interpreter = Interpreter()
 
 private fun run(source: String) {
     val tokens = scanner.scanTokens(source)
-    val expression = parser.parse(tokens)
+    val statements = parser.parse(tokens)
 
     // Stop if there was a syntax error.
-    if (expression == null) return
+    if (hadError) return
 
-    interpreter.interpret(expression)
+    interpreter.interpret(statements)
 }
 
 private fun error(line: Int, message: String) {
@@ -56,8 +56,8 @@ private fun report(line: Int, where: String, message: String) {
 
 fun error(token: Token, message: String) {
     when (token.type) {
-        TokenType.EOF -> report(token.line, " at end", message)
-        else -> report(token.line, " at '${token.lexeme}'", message)
+        TokenType.EOF -> report(token.line, "at end", message)
+        else -> report(token.line, "at '${token.lexeme}'", message)
     }
 }
 

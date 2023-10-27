@@ -1,14 +1,24 @@
 package main
 
-interface Visitor<R> {
-    fun visit(expr: Expr.Binary): R
-    fun visit(expr: Expr.Grouping): R
-    fun visit(expr: Expr.Literal): R
-    fun visit(expr: Expr.Unary): R
-}
-
 sealed class Expr {
+
+    interface Visitor<R> {
+        fun visit(expr: Assign): R
+        fun visit(expr: Binary): R
+        fun visit(expr: Grouping): R
+        fun visit(expr: Literal): R
+        fun visit(expr: Unary): R
+        fun visit(expr: Variable): R
+    }
+
     abstract fun <R>accept(visitor: Visitor<R>): R
+
+    class Assign(
+        val name: Token,
+        val expression: Expr,
+    ) : Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
+    }
 
     class Binary(
         val left: Expr,
@@ -36,5 +46,10 @@ sealed class Expr {
     ) : Expr() {
         override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
     }
-}
 
+    class Variable(
+        val name: Token,
+    ) : Expr() {
+        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
+    }
+}

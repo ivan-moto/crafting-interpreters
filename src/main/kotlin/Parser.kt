@@ -11,17 +11,87 @@ class ParseError(
 
 class Parser {
 
-    fun parse(tokens: List<Token>): Expr? {
-        val iter = TokenIterator(tokens)
+    fun parse(tokens: List<Token>): List<Stmt> {
+        return buildList {
+            val iter = TokenIterator(tokens)
+            while (iter.hasNext()) {
+                declaration(iter).also { if (it != null) add (it) }
+            }
+        }
+    }
+
+    private fun declaration(iter: TokenIterator): Stmt? {
         return try {
-            expression(iter)
+            if (iter.match(TokenType.VAR)) return varDeclaration(iter)
+            statement(iter)
         } catch (e: ParseError) {
+            synchronize(iter)
             null
         }
     }
 
+    private fun synchronize(iter: TokenIterator) {
+        val previous = iter.next()
+        while (iter.hasNext()) {
+            if (previous.type == TokenType.SEMICOLON) return
+            when (iter.peek().type) {
+                TokenType.CLASS, TokenType.FUN, TokenType.VAR, TokenType.FOR, TokenType.IF, TokenType.WHILE, TokenType.PRINT, TokenType.RETURN -> return
+                else -> iter.next()
+            }
+        }
+    }
+
+    private fun varDeclaration(iter: TokenIterator): Stmt {
+        val name = consume(iter, TokenType.IDENTIFIER, "Expect variable name")
+        val initializer = if (iter.match(TokenType.EQUAL)) expression(iter) else null
+        consume(iter, TokenType.SEMICOLON, "Expect ';' after variable declaration.")
+        return Stmt.Var(name, initializer)
+    }
+
+    private fun statement(iter: TokenIterator): Stmt {
+        if (iter.match(TokenType.PRINT)) return printStatement(iter)
+        if (iter.match(TokenType.LEFT_BRACE)) return Stmt.Block(block(iter))
+        return expressionStatement(iter)
+    }
+
+    private fun printStatement(iter: TokenIterator): Stmt {
+        val value = expression(iter)
+        consume(iter, TokenType.SEMICOLON, "Expect ';' after value.")
+        return Stmt.Print(value)
+    }
+
+    private fun block(iter: TokenIterator): List<Stmt> {
+        return buildList {
+            while (!iter.nextHasType(TokenType.RIGHT_BRACE) && iter.hasNext()) {
+                declaration(iter).also { if (it != null) add (it) }
+            }
+            consume(iter, TokenType.RIGHT_BRACE, "Expect '}' after block.")
+        }
+    }
+
+    private fun expressionStatement(iter: TokenIterator): Stmt {
+        val expr = expression(iter)
+        consume(iter, TokenType.SEMICOLON, "Expect ';' after expression.")
+        return Stmt.Expression(expr)
+    }
+
     private fun expression(iter: TokenIterator): Expr {
-        return equality(iter)
+        return assignment(iter)
+    }
+
+    private fun assignment(iter: TokenIterator): Expr {
+        val expr = equality(iter)
+        if (iter.match(TokenType.EQUAL)) {
+            val equals = iter.previous()
+            val value = assignment(iter)
+
+            if (expr is Expr.Variable) {
+                val name = expr.name
+                return Expr.Assign(name, value)
+            }
+            error(equals, "Invalid assignment target.")
+        }
+        return expr
     }
 
     private fun equality(iter: TokenIterator): Expr {
@@ -79,6 +149,7 @@ class Parser {
             iter.match(TokenType.TRUE) -> Expr.Literal(true)
             iter.match(TokenType.NIL) -> Expr.Literal(null)
             iter.match(TokenType.NUMBER, TokenType.STRING) -> Expr.Literal(iter.previous().literal)
+            iter.match(TokenType.IDENTIFIER) -> Expr.Variable(iter.previous())
             iter.match(TokenType.LEFT_PAREN) -> {
                 val expr = expression(iter)
                 consume(iter, TokenType.RIGHT_PAREN, "Expect ')' after expression.")
