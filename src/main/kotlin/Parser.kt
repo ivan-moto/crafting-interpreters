@@ -15,7 +15,7 @@ class Parser {
         return buildList {
             val iter = TokenIterator(tokens)
             while (iter.hasNext()) {
-                declaration(iter).also { if (it != null) add (it) }
+                declaration(iter)?.also { add (it) }
             }
         }
     }
@@ -31,11 +31,10 @@ class Parser {
     }
 
     private fun synchronize(iter: TokenIterator) {
-        val previous = iter.next()
         while (iter.hasNext()) {
-            if (previous.type == TokenType.SEMICOLON) return
             when (iter.peek().type) {
                 TokenType.CLASS, TokenType.FUN, TokenType.VAR, TokenType.FOR, TokenType.IF, TokenType.WHILE, TokenType.PRINT, TokenType.RETURN -> return
+                TokenType.SEMICOLON -> iter.next().also { return }
                 else -> iter.next()
             }
         }
@@ -63,7 +62,7 @@ class Parser {
     private fun block(iter: TokenIterator): List<Stmt> {
         return buildList {
             while (!iter.nextHasType(TokenType.RIGHT_BRACE) && iter.hasNext()) {
-                declaration(iter).also { if (it != null) add (it) }
+                declaration(iter)?.also { add (it) }
             }
             consume(iter, TokenType.RIGHT_BRACE, "Expect '}' after block.")
         }
@@ -169,7 +168,7 @@ class Parser {
 
         fun match(vararg types: TokenType): Boolean = types.any { nextHasType(it) }.also { if (it) next() }
         fun nextHasType(type: TokenType): Boolean = hasNext() && peek().type == type
-        fun hasNext(): Boolean = peek().type != TokenType.EOF
+        fun hasNext(): Boolean = current in tokens.indices && peek().type != TokenType.EOF
         fun next(): Token = tokens[current++]
         fun peek(): Token = tokens[current]
         fun previous(): Token = tokens[current - 1]

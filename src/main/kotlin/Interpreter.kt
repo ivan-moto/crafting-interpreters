@@ -1,5 +1,7 @@
 package main
 
+import java.util.IdentityHashMap
+
 class RuntimeError(
     val token: Token,
     override val message: String,
@@ -35,7 +37,9 @@ class Environment(
 
 class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Unit> {
 
-    private var environment = Environment()
+    val globals = Environment()
+    private val locals = IdentityHashMap<Expr, Int>()
+    private var environment = globals
 
     fun interpret(statements: List<Stmt>) {
         try {
@@ -50,9 +54,9 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Unit> {
     private fun Any?.stringify(): String {
         if (this == null) return "nil"
         if (this is Double) {
-            return this.toString().substringBeforeLast(".0")
+            return toString().substringBeforeLast(".0")
         }
-        return this.toString()
+        return toString()
     }
 
     override fun visit(expr: Expr.Assign): Any? {
@@ -142,16 +146,7 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Unit> {
     private fun Any?.isTruthy(): Boolean = this != null && (this as? Boolean) != false
 
     override fun visit(stmt: Stmt.Block) {
-        val new = Environment(environment)
-        val previous = environment
-        try {
-            environment = new
-            for (statement in stmt.statements) {
-                statement.accept(this)
-            }
-        } finally {
-            environment = previous
-        }
+        executeBlock(stmt.statements)
     }
 
     override fun visit(stmt: Stmt.Expression) {
@@ -159,11 +154,26 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Unit> {
     }
 
     override fun visit(stmt: Stmt.Print) {
-        println(stmt.expression.accept(this).stringify())
+        println(evaluate(stmt.expression).stringify())
     }
 
     override fun visit(stmt: Stmt.Var) {
         val value = if (stmt.initializer != null) stmt.initializer.accept(this) else null
         environment.define(stmt.name, value)
+    }
+
+    private fun evaluate(expr: Expr): Any? = expr.accept(this)
+
+    private fun execute(stmt: Stmt) = stmt.accept(this)
+
+    private fun executeBlock(statements: List<Stmt>) {
+        try {
+            environment = Environment(environment)
+            for (statement in statements) {
+                execute(statement)
+            }
+        } finally {
+            environment = environment.enclosing!!
+        }
     }
 }

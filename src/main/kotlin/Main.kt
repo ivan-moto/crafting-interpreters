@@ -24,8 +24,7 @@ private fun runFile(path: String) {
 private fun runPrompt() {
     while (true) {
         print("> ")
-        val line = readlnOrNull()
-        if (line == null) return
+        val line = readlnOrNull() ?: return
         run(line)
         hadError = false
     }
@@ -63,5 +62,5 @@ fun error(token: Token, message: String) {
 
 fun runtimeError(error: RuntimeError) {
     hadRuntimeError = true
-    System.err.println("${error.message} \n[Line ${error.token.line}]")
+    System.err.println("[Line ${error.token.line}] ${error.message}")
 }
